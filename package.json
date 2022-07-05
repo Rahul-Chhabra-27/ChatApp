@@ -1,0 +1,20 @@
+{
+  "dependencies": {
+    "color": "^4.2.3",
+    "dotenv": "^16.0.1",
+    "express": "^4.18.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.18"
+  },
+  "name": "chat_app",
+  "version": "1.0.0",
+  "description": "Realtime chat app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "server": "nodemon src/server.js"
+  },
+  "author": "Rahul Chhabra",
+  "license": "ISC"
+}
