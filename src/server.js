@@ -1,28 +1,95 @@
-const express = require("express");
 const path = require("path");
-const dotenv = require("dotenv");
 const http = require("http");
+const express = require("express");
 const socketio = require("socket.io");
-dotenv.config();
+const Filter = require("bad-words");
+const {
+  generateMessage,
+  generateLocationMessage,
+} = require("./utils/messages");
+const {
+  addUser,
+  removeUser,
+  getUser,
+  getUsersInRoom,
+} = require("./utils/users");
 
 const app = express();
 const server = http.createServer(app);
 const io = socketio(server);
-app.use(express.static(path.join(__dirname, "../", "static")));
 
-let count = 0;
-/// io.on() inkoves every time , when new user joins the client-server communication.
-io.on("connection", (server) => {
-  console.log("New websocket connection established..");
-  // Sending a request to a new client about updated count value... 
-  server.emit("updatedCount", count);
-  // Accepting the client request and doing accordingly....
-  server.on("incrementCount", () => {
-    count++;
-    // Sending a request back to all the clients that are connected and letting them know about the updated count value. 
-    io.emit("updatedCount", count);
+const port = process.env.PORT || 3000;
+const publicDirectoryPath = path.join(__dirname, "../static");
+
+app.use(express.static(publicDirectoryPath));
+
+io.on("connection", (socket) => {
+  console.log("New WebSocket connection");
+
+  socket.on("join", (options, callback) => {
+    const { error, user } = addUser({ id: socket.id, ...options });
+
+    if (error) {
+      return callback(error);
+    }
+
+    socket.join(user.room);
+
+    socket.emit("message", generateMessage("Admin", "Welcome!"));
+    socket.broadcast
+      .to(user.room)
+      .emit(
+        "message",
+        generateMessage("Admin", `${user.username} has joined!`)
+      );
+    io.to(user.room).emit("roomData", {
+      room: user.room,
+      users: getUsersInRoom(user.room),
+    });
+
+    callback();
+  });
+
+  socket.on("sendMessage", (message, callback) => {
+    const user = getUser(socket.id);
+    const filter = new Filter();
+
+    if (filter.isProfane(message)) {
+      return callback("Profanity is not allowed!");
+    }
+
+    io.to(user.room).emit("message", generateMessage(user.username, message));
+    callback();
+  });
+
+  socket.on("sendLocation", (coords, callback) => {
+    const user = getUser(socket.id);
+    io.to(user.room).emit(
+      "locationMessage",
+      generateLocationMessage(
+        user.username,
+        `https://google.com/maps?q=${coords.latitude},${coords.longitude}`
+      )
+    );
+    callback();
+  });
+
+  socket.on("disconnect", () => {
+    const user = removeUser(socket.id);
+
+    if (user) {
+      io.to(user.room).emit(
+        "message",
+        generateMessage("Admin", `${user.username} has left!`)
+      );
+      io.to(user.room).emit("roomData", {
+        room: user.room,
+        users: getUsersInRoom(user.room),
+      });
+    }
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+server.listen(port, () => {
+  console.log(`Server is up on port ${port}!`);
+});

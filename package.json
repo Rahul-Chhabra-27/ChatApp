@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "bad-words": "^3.0.4",
     "color": "^4.2.3",
     "dotenv": "^16.0.1",
     "express": "^4.18.1",
